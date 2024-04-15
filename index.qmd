@@ -11,6 +11,7 @@ about:
       href: mailto:bhinojosaleal@ucsd.edu
     - icon: linkedin
       href: https://www.linkedin.com/in/bidkar-hinojosa-leal
+      
 ---
 
 Welcome to my website!
