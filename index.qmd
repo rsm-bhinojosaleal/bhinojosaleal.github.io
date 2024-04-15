@@ -1,0 +1,16 @@
+---
+title: "Your Name"
+
+image: "files/Bidkar Hinojosa.jpg"
+about:
+
+  template: jolla
+
+  links:
+    - icon: envelope
+      href: mailto:bhinojosaleal@ucsd.edu
+    - icon: linkedin
+      href: https://www.linkedin.com/in/bidkar-hinojosa-leal
+---
+
+Welcome to my website!
