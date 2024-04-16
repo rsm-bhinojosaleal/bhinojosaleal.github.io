@@ -16,5 +16,8 @@
   },
   "projects/project2/index.qmd": {
     "index.html": "dac407ff"
+  },
+  "projects/project2/hw1_questions.qmd": {
+    "hw1_questions.html": "389babe1"
   }
 }
