@@ -112,19 +112,76 @@ Since our outcome variable of interest can only be small integer values per a se
 
 _todo: Write down mathematically the likelihood for_ $Y \sim \text{Poisson}(\lambda)$. Note that $f(Y|\lambda) = e^{-\lambda}\lambda^Y/Y!$.
 
+Likelihood = ℓ(λ)=∑i=1n​(yi​log(λ)−λ−log(yi​!))
+
 _todo: Code the likelihood (or log-likelihood) function for the Poisson model. This is a function of lambda and Y. For example:_
 
-```
-poisson_loglikelihood <- function(lambda, Y){
-   ...
-}
+```{python}
+import numpy as np
+from scipy.special import factorial, gammaln
+
+def poisson_loglikelihood(lambda_, Y):
+    if lambda_ <= 0:
+        raise ValueError("Lambda must be greater than 0")
+    
+    # Using gammaln to compute the log factorial to avoid overflow
+    log_likelihood = np.sum(Y * np.log(lambda_) - lambda_ - gammaln(Y + 1))
+    return log_likelihood
+
 ```
 
 _todo: Use your function to plot lambda on the horizontal axis and the likelihood (or log-likelihood) on the vertical axis for a range of lambdas (use the observed number of patents as the input for Y)._
 
+```{python}
+lambda_values = np.linspace(0.1, 10, 100)
+
+log_likelihoods = [poisson_loglikelihood(lambda_, df_blueprinty['patents']) for lambda_ in lambda_values]
+
+plt.figure(figsize=(10, 5))
+plt.plot(lambda_values, log_likelihoods, color='blue', linestyle='-', marker='None', linewidth=2)
+plt.title('Log-Likelihood of Poisson Distribution for Various Lambda')
+plt.xlabel('Lambda (Rate Parameter)')
+plt.ylabel('Log-Likelihood')
+plt.grid(True)
+plt.show()
+
+```
+
 _todo: If you're feeling mathematical, take the first derivative of your likelihood or log-likelihood, set it equal to zero and solve for lambda. You will find lambda_mle is Ybar, which "feels right" because the mean of a Poisson distribution is lambda._
 
 _todo: Find the MLE by optimizing your likelihood function with optim() in R or sp.optimize() in Python._
+
+```{python}
+from scipy.optimize import minimize
+
+def negative_poisson_loglikelihood(lambda_, Y):
+    return -poisson_loglikelihood(lambda_, Y)  # Return negative log likelihood
+
+from scipy.optimize import minimize
+
+# Example observed data
+Y = df_blueprinty['patents'].values
+
+# Initial guess for lambda
+initial_lambda = np.mean(Y)
+
+# Optimization to find the MLE for lambda
+result = minimize(
+    fun=negative_poisson_loglikelihood,  # function to minimize
+    x0=[initial_lambda],  # initial guess
+    args=(Y,),  # additional arguments for the function
+    method='L-BFGS-B',  # optimization method suitable for bounded problems
+    bounds=[(0.001, None)]  # lambda must be positive, setting a lower bound
+)
+
+# Check the result
+if result.success:
+    mle_lambda = result.x[0]
+    print(f"MLE for lambda: {mle_lambda}")
+else:
+    print("Optimization failed:", result.message)
+
+```
 
 
 ### Estimation of Poisson Regression Model
@@ -133,17 +190,89 @@ Next, we extend our simple Poisson model to a Poisson Regression Model such that
 
 _todo: Update your likelihood or log-likelihood function with an additional argument to take in a covariate matrix X. Also change the parameter of the model from lambda to the beta vector. In this model, lambda must be a positive number, so we choose the inverse link function g() to be exp() so that_ $\lambda_i = e^{X_i'\beta}$. _For example:_
 
-```
-poisson_regression_likelihood <- function(beta, Y, X){
-   ...
-}
+```{python}
+def poisson_regression_loglikelihood(beta, Y, X):
+    """
+    Compute the log likelihood for the Poisson regression model.
+    
+    Args:
+    beta (numpy.ndarray): Parameter vector.
+    Y (numpy.ndarray): Observed counts.
+    X (numpy.ndarray): Design matrix of covariates.
+
+    Returns:
+    float: The log likelihood value.
+    """
+    # Calculate lambda for each observation
+    linear_combination = X @ beta
+    lambda_i = np.exp(np.clip(linear_combination, None, 20))
+    
+    # Compute the log likelihood
+    log_likelihood = np.sum(Y * linear_combination - lambda_i - gammaln(Y + 1))
+    return log_likelihood
 ```
 
 _todo: Use your function along with R's optim() or Python's sp.optimize() to find the MLE vector and the Hessian of the Poisson model with covariates. Specifically, the first column of X should be all 1's to enable a constant term in the model, and the subsequent columns should be age, age squared, binary variables for all but one of the regions, and the binary customer variable. Use the Hessian to find standard errors of the beta parameter estimates and present a table of coefficients and standard errors._
 
+```{python}
+from sklearn.preprocessing import OneHotEncoder
+
+# Add the age squared term
+df_blueprinty['age_squared'] = df_blueprinty['age'] ** 2
+
+# One-hot encode the 'region' variable, dropping the first category
+encoder = OneHotEncoder(drop='first')
+region_encoded = encoder.fit_transform(df_blueprinty[['region']]).toarray()
+
+# Prepare the design matrix X
+# Adding intercept column with ones
+X = np.hstack([np.ones((df_blueprinty.shape[0], 1)), df_blueprinty[['age', 'age_squared', 'iscustomer']].values, region_encoded])
+
+# Prepare the response variable Y
+Y = df_blueprinty['patents'].values
+
+def negative_poisson_regression_loglikelihood(beta, Y, X):
+    return -poisson_regression_loglikelihood(beta, Y, X)
+
+initial_beta = np.zeros(X.shape[1])
+
+# Minimize the negative log likelihood
+result = minimize(
+    fun=negative_poisson_regression_loglikelihood,
+    x0=initial_beta,
+    args=(Y, X),
+    method='L-BFGS-B',  # Bounded optimization
+    bounds=[(None, None)] * X.shape[1]  # No upper bounds, but ensuring no negative infinities
+)
+
+if result.success:
+    print("Optimized beta:", result.x)
+else:
+    print("Optimization failed:", result.message)
+```
+
 _todo: Check your results using R's glm() function or Python sm.GLM() function._
 
+```{python}
+import statsmodels.api as sm
+
+# Assuming df_blueprinty and X, Y are already prepared and include the necessary transformations and dummy variables
+X = sm.add_constant(X)  # Add an intercept to the model, if not already included
+
+# Create the Poisson model object
+poisson_model = sm.GLM(Y, X, family=sm.families.Poisson())
+
+# Fit the model
+poisson_results = poisson_model.fit()
+
+# Print the summary of the regression results
+print(poisson_results.summary())
+
+```
+
 _todo: Interpret the results. What do you conclude about the effect of Blueprinty's software on patent success?_
+
+The coefficient for the variable representing whether a firm is a customer of Blueprinty (x3) is positive (0.1181) and statistically significant (p = 0.002). This suggests that firms using Blueprinty's software have a higher expected count of patents, compared to firms that do not use the software. Specifically, the effect size implies that using Blueprinty's software increases the expected count of patents by approximately 12.5% (exp(0.1181) ≈ 1.125). This is a robust statistical confirmation supporting the marketing team's claim that Blueprinty's software enhances the success rate of patent applications.
 
 
 
