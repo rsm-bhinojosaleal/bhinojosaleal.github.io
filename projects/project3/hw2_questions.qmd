@@ -307,5 +307,85 @@ _todo: Assume the number of reviews is a good proxy for the number of bookings. 
 
 
 
+```{python}
+
+df = pd.read_csv('airbnb.csv')
+print(df.head())
+
+print(df.info())
+
+# Create dummy variables
+df_processed = pd.get_dummies(df, columns=['room_type', 'instant_bookable'], drop_first=True)
+
+# Ensure all columns used in X are numeric and fill or drop NAs
+df_processed.dropna(subset=['bathrooms', 'bedrooms', 'price', 'review_scores_cleanliness', 'review_scores_location', 'review_scores_value'], inplace=True)
+
+# Explicitly convert types to float if not already (this handles cases where the dtype might be 'object')
+columns_to_convert = ['bathrooms', 'bedrooms', 'price', 'review_scores_cleanliness', 'review_scores_location', 'review_scores_value']
+for column in columns_to_convert:
+    df_processed[column] = df_processed[column].astype(float)
+
+boolean_columns = ['room_type_Private room', 'room_type_Shared room', 'instant_bookable_t']
+for col in boolean_columns:
+    df_processed[col] = df_processed[col].astype(int)
+
+# Define the model
+X = df_processed[['bathrooms', 'bedrooms', 'price', 'review_scores_cleanliness', 'review_scores_location', 'review_scores_value'] + boolean_columns]
+y = df_processed['number_of_reviews'].astype(float)
+
+# Adding a constant to the model (intercept)
+X = sm.add_constant(X)
+
+
+# Fit the model
+try:
+    model = sm.GLM(y, X, family=sm.families.Poisson()).fit()
+    print(model.summary())
+except Exception as e:
+    print("Error in fitting model:", e)
+
+```
+
+    Intercept (const):
+        Coefficient: 3.57253.5725
+        This value indicates the log of the expected count of reviews when all other variables are held at zero, which isn't practically feasible for most variables but provides a baseline reference.
+
+    Bathrooms:
+        Coefficient: −0.1240−0.1240
+        Each additional bathroom is associated with a decrease of about 12.4% in the expected count of reviews. This might suggest that larger properties (more bathrooms) are less frequently reviewed, perhaps due to less frequent rentals or higher costs.
+
+    Bedrooms:
+        Coefficient: 0.07490.0749
+        Each additional bedroom is associated with an increase of about 7.5% in the expected count of reviews, indicating that larger properties in terms of bedrooms tend to have more bookings.
+
+    Price:
+        Coefficient: −0.00001435−0.00001435
+        Each one-dollar increase in price is associated with a very slight decrease in the expected count of reviews, suggesting that higher prices could deter bookings slightly.
+
+    Review Scores - Cleanliness:
+        Coefficient: 0.11320.1132
+        Higher cleanliness scores are strongly associated with an increase in the expected count of reviews, indicating that cleaner properties are more likely to be booked and reviewed.
+
+    Review Scores - Location:
+        Coefficient: −0.0768−0.0768
+        A higher location score slightly decreases the expected count of reviews, which is counterintuitive unless properties in desirable locations are less frequently available or require less promotion through reviews.
+
+    Review Scores - Value:
+        Coefficient: −0.0915−0.0915
+        Higher scores for value decrease the expected count of reviews, suggesting that guests might expect more for their money and may be critical in reviews when their expectations are not met.
+
+    Room Type - Private room:
+        Coefficient: −0.0145−0.0145
+        Listings for private rooms are associated with a slight decrease in the expected count of reviews compared to entire homes/apartments, possibly indicating fewer bookings or less frequent reviews.
+
+    Room Type - Shared room:
+        Coefficient: −0.2519−0.2519
+        Shared rooms show a significant decrease in the expected count of reviews compared to entire homes/apartments, indicating they are much less popular or frequently booked.
+
+    Instant Bookable:
+        Coefficient: 0.33440.3344
+        Listings that are instantly bookable are associated with a substantial increase in the expected count of reviews, suggesting higher booking rates due to the convenience of instant booking.
+
+
 
 
