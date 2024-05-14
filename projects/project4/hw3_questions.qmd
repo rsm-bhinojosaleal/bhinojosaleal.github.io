@@ -1,0 +1,391 @@
+---
+title: "Multinomial Logit Examples"
+author: "Your Name"
+date: today
+---
+
+
+This assignment uses uses the MNL model to analyze (1) yogurt purchase data made by consumers at a retail location, and (2) conjoint data about consumer preferences for minivans.
+
+
+## 1. Estimating Yogurt Preferences
+
+### Likelihood for the Multi-nomial Logit (MNL) Model
+
+Suppose we have $i=1,\ldots,n$ consumers who each select exactly one product $j$ from a set of $J$ products. The outcome variable is the identity of the product chosen $y_i \in \{1, \ldots, J\}$ or equivalently a vector of $J-1$ zeros and $1$ one, where the $1$ indicates the selected product. For example, if the third product was chosen out of 4 products, then either $y=3$ or $y=(0,0,1,0)$ depending on how we want to represent it. Suppose also that we have a vector of data on each product $x_j$ (eg, size, price, etc.). 
+
+We model the consumer's decision as the selection of the product that provides the most utility, and we'll specify the utility function as a linear function of the product characteristics:
+
+$$ U_{ij} = x_j'\beta + \epsilon_{ij} $$
+
+where $\epsilon_{ij}$ is an i.i.d. extreme value error term. 
+
+The choice of the i.i.d. extreme value error term leads to a closed-form expression for the probability that consumer $i$ chooses product $j$:
+
+$$ \mathbb{P}_i(j) = \frac{e^{x_j'\beta}}{\sum_{k=1}^Je^{x_k'\beta}} $$
+
+For example, if there are 4 products, the probability that consumer $i$ chooses product 3 is:
+
+$$ \mathbb{P}_i(3) = \frac{e^{x_3'\beta}}{e^{x_1'\beta} + e^{x_2'\beta} + e^{x_3'\beta} + e^{x_4'\beta}} $$
+
+A clever way to write the individual likelihood function for consumer $i$ is the product of the $J$ probabilities, each raised to the power of an indicator variable ($\delta_{ij}$) that indicates the chosen product:
+
+$$ L_i(\beta) = \prod_{j=1}^J \mathbb{P}_i(j)^{\delta_{ij}} = \mathbb{P}_i(1)^{\delta_{i1}} \times \ldots \times \mathbb{P}_i(J)^{\delta_{iJ}}$$
+
+Notice that if the consumer selected product $j=3$, then $\delta_{i3}=1$ while $\delta_{i1}=\delta_{i2}=\delta_{i4}=0$ and the likelihood is:
+
+$$ L_i(\beta) = \mathbb{P}_i(1)^0 \times \mathbb{P}_i(2)^0 \times \mathbb{P}_i(3)^1 \times \mathbb{P}_i(4)^0 = \mathbb{P}_i(3) = \frac{e^{x_3'\beta}}{\sum_{k=1}^Je^{x_k'\beta}} $$
+
+The joint likelihood (across all consumers) is the product of the $n$ individual likelihoods:
+
+$$ L_n(\beta) = \prod_{i=1}^n L_i(\beta) = \prod_{i=1}^n \prod_{j=1}^J \mathbb{P}_i(j)^{\delta_{ij}} $$
+
+And the joint log-likelihood function is:
+
+$$ \ell_n(\beta) = \sum_{i=1}^n \sum_{j=1}^J \delta_{ij} \log(\mathbb{P}_i(j)) $$
+
+
+### Yogurt Dataset
+
+We will use the `yogurt_data` dataset, which provides anonymized consumer identifiers (`id`), a vector indicating the chosen product (`y1`:`y4`), a vector indicating if any products were "featured" in the store as a form of advertising (`f1`:`f4`), and the products' prices (`p1`:`p4`). For example, consumer 1 purchased yogurt 4 at a price of 0.079/oz and none of the yogurts were featured/advertised at the time of consumer 1's purchase.  Consumers 2 through 7 each bought yogurt 2, etc.
+
+```{python}
+
+import pandas as pd
+yogurt_data = pd.read_csv('yogurt_data.csv')
+yogurt_data.head(10)
+
+```
+
+The dataset yogurt_data contains the following columns:
+
+    id: Consumer identifier
+    y1 to y4: Binary variables indicating which yogurt product was chosen by the consumer (1 if chosen, 0 otherwise)
+    f1 to f4: Binary variables indicating if the corresponding yogurt product was featured/advertised (1 if featured, 0 otherwise)
+    p1 to p4: Prices of the corresponding yogurt products in dollars per ounce
+
+
+Let the vector of product features include brand dummy variables for yogurts 1-3 (we'll omit a dummy for product 4 to avoid multi-collinearity), a dummy variable to indicate if a yogurt was featured, and a continuous variable for the yogurts' prices:  
+
+$$ x_j' = [\mathbbm{1}(\text{Yogurt 1}), \mathbbm{1}(\text{Yogurt 2}), \mathbbm{1}(\text{Yogurt 3}), X_f, X_p] $$
+
+The "hard part" of the MNL likelihood function is organizing the data, as we need to keep track of 3 dimensions (consumer $i$, covariate $k$, and product $j$) instead of the typical 2 dimensions for cross-sectional regression models (consumer $i$ and covariate $k$). 
+
+What we would like to do is reorganize the data from a "wide" shape with $n$ rows and multiple columns for each covariate, to a "long" shape with $n \times J$ rows and a single column for each covariate.  As part of this re-organization, we'll add binary variables to indicate the first 3 products; the variables for featured and price are included in the dataset and simply need to be "pivoted" or "melted" from wide to long.  
+
+```{python}
+# Melt the data to long format
+long_data = pd.melt(yogurt_data, id_vars=['id'], value_vars=['y1', 'y2', 'y3', 'y4'],
+                    var_name='product', value_name='chosen')
+
+# Melt the feature and price data
+feature_data = pd.melt(yogurt_data, id_vars=['id'], value_vars=['f1', 'f2', 'f3', 'f4'],
+                       var_name='product_feature', value_name='featured')
+price_data = pd.melt(yogurt_data, id_vars=['id'], value_vars=['p1', 'p2', 'p3', 'p4'],
+                     var_name='product_price', value_name='price')
+
+# Extract product number from the variable names
+long_data['product'] = long_data['product'].str.extract('(\d)').astype(int)
+feature_data['product'] = feature_data['product_feature'].str.extract('(\d)').astype(int)
+price_data['product'] = price_data['product_price'].str.extract('(\d)').astype(int)
+
+# Merge the long_data with feature_data and price_data
+long_data = long_data.merge(feature_data[['id', 'product', 'featured']], on=['id', 'product'])
+long_data = long_data.merge(price_data[['id', 'product', 'price']], on=['id', 'product'])
+
+# Create dummy variables for products 1, 2, and 3
+long_data['yogurt_1'] = (long_data['product'] == 1).astype(int)
+long_data['yogurt_2'] = (long_data['product'] == 2).astype(int)
+long_data['yogurt_3'] = (long_data['product'] == 3).astype(int)
+
+# Display the first few rows of the reshaped dataset
+print(long_data.head())
+
+```
+
+
+### Estimation
+
+```{python}
+
+import numpy as np
+from scipy.optimize import minimize
+
+
+# Define the utility function
+def utility(params, data):
+    beta_1, beta_2, beta_3, beta_f, beta_p = params
+    utilities = (beta_1 * data['yogurt_1'] +
+                 beta_2 * data['yogurt_2'] +
+                 beta_3 * data['yogurt_3'] +
+                 beta_f * data['featured'] +
+                 beta_p * data['price'])
+    return utilities
+
+def log_likelihood(params, data):
+    utilities = utility(params, data)
+    data['exp_utilities'] = np.exp(utilities)
+    
+    # Group by consumer id and calculate the denominator for the softmax function
+    data['sum_exp_utilities'] = data.groupby('id')['exp_utilities'].transform('sum')
+    data['probabilities'] = data['exp_utilities'] / data['sum_exp_utilities']
+    
+    # Calculate the log-likelihood
+    data['log_likelihood'] = data['chosen'] * np.log(data['probabilities'])
+    return -data['log_likelihood'].sum()
+
+# Initial parameter values
+initial_params = [0, 0, 0, 0, 0]
+
+# Optimize the log-likelihood function
+result = minimize(log_likelihood, initial_params, args=(long_data), method='BFGS')
+
+beta_1, beta_2, beta_3, beta_f, beta_p = result.x
+
+# Print the results
+print('Estimated parameters:')
+print('beta_1:', beta_1)
+print('beta_2:', beta_2)
+print('beta_3:', beta_3)
+print('beta_f:', beta_f)
+print('beta_p:', beta_p)
+```
+
+
+
+### Discussion
+
+We learn...
+
+Based on the 3 betas obtained the yogurt one which has the greatest beta is the most preferred and the least preferred is the yogurt 3 as it has a negative value.
+
+```{python}
+intercepts = [beta_1, beta_2, beta_3]
+most_preferred = max(intercepts)
+least_preferred = min(intercepts)
+
+# Calculate the dollar benefit (brand value)
+dollar_benefit = (most_preferred - least_preferred) / beta_p
+print('Dollar benefit between most and least preferred yogurts:', dollar_benefit)
+
+# Step 3: Simulate counterfactual
+# Calculate the market shares with the original prices
+def predict_market_shares(params, data):
+    utilities = utility(params, data)
+    data['exp_utilities'] = np.exp(utilities)
+    data['sum_exp_utilities'] = data.groupby('id')['exp_utilities'].transform('sum')
+    data['probabilities'] = data['exp_utilities'] / data['sum_exp_utilities']
+    return data.groupby('product')['probabilities'].mean()
+
+# Original market shares
+original_market_shares = predict_market_shares(result.x, long_data)
+
+# Increase the price of yogurt 1 by $0.10
+long_data_cf = long_data.copy()
+long_data_cf.loc[long_data_cf['product'] == 1, 'price'] += 0.10
+
+# New market shares after the price increase
+new_market_shares = predict_market_shares(result.x, long_data_cf)
+
+# Compare the market shares
+print('Original market shares:')
+print(original_market_shares)
+print('New market shares after price increase:')
+print(new_market_shares)
+```
+
+Dollar benefit between most and least preferred yogurts: -0.12072647932202944
+
+New market shares after price increase:
+product
+1    0.021118
+2    0.591145
+3    0.044040
+4    0.343697
+
+After making the analysis we conclude that the market share value for yogurt one decrease by more than .30.
+
+
+
+## 2. Estimating Minivan Preferences
+
+
+### Data
+
+_todo: download the dataset from here:_ http://goo.gl/5xQObB 
+
+```{python}
+data = pd.read_csv('rintro-chapter13conjoint.csv')
+
+# Display the first few rows of the dataset
+data.head()
+
+num_respondents = data['resp.id'].nunique()
+choice_tasks_per_respondent = data.groupby('resp.id')['ques'].nunique().mean()
+alternatives_per_task = data.groupby(['resp.id', 'ques']).size().mean()
+
+# Attributes and levels
+seat_levels = data['seat'].unique()
+cargo_levels = data['cargo'].unique()
+engine_levels = data['eng'].unique()
+price_levels = data['price'].unique()
+
+num_respondents, choice_tasks_per_respondent, alternatives_per_task, seat_levels, cargo_levels, engine_levels, price_levels
+
+```
+Survey Participants:
+
+    Number of respondents: 200
+
+Survey Structure:
+
+    Choice tasks per respondent: Each respondent completed an average of 15 choice tasks.
+    Alternatives per choice task: Each choice task presented 3 alternatives.
+
+Attributes and Levels:
+
+The survey evaluated the following attributes for each car alternative:
+
+    Number of seats: 6, 7, 8
+    Cargo space: 2ft, 3ft
+    Engine type: Gas, Hybrid (hyb), Electric (elec)
+    Price: 30, 35, 40 (in thousands of dollars)
+
+### Model
+
+```{python}
+import statsmodels.api as sm
+import numpy as np
+
+data['choice'] = data['choice'].astype(int)
+data['price'] = data['price'].astype(float)
+
+# Convert to categorical and specify reference categories
+data['seat'] = data['seat'].astype('category').cat.reorder_categories([6, 7, 8], ordered=True)
+data['cargo'] = data['cargo'].astype('category').cat.reorder_categories(['2ft', '3ft'], ordered=True)
+data['eng'] = data['eng'].astype('category').cat.reorder_categories(['gas', 'hyb', 'elec'], ordered=True)
+
+# Create dummy variables with the correct reference categories
+data_dummies = pd.get_dummies(data, drop_first=True)
+
+# Define the dependent variable and independent variables
+y = data['choice']
+X = data_dummies[['seat_7', 'seat_8', 'cargo_3ft', 'eng_hyb', 'eng_elec', 'price']]
+
+# Convert X to a numeric type
+X = sm.add_constant(X.astype(float))
+
+# Fit the MNL model using statsmodels
+model = sm.Logit(y, X)
+result = model.fit()
+
+# Display the coefficients and standard errors
+coefficients = result.params
+standard_errors = result.bse
+
+# Print results
+print("Coefficients:\n", coefficients)
+print("\nStandard Errors:\n", standard_errors)
+```
+
+
+### Results
+
+Coefficients:
+
+    Constant: 5.532174
+    Seats (7): -0.524752
+    Seats (8): -0.293085
+    Cargo (3ft): 0.438538
+    Engine (Hybrid): -0.760489
+    Engine (Electric): -1.434680
+    Price: -0.159133
+
+Standard Errors:
+
+    Constant: 0.224186
+    Seats (7): 0.059634
+    Seats (8): 0.058510
+    Cargo (3ft): 0.048706
+    Engine (Hybrid): 0.056919
+    Engine (Electric): 0.061794
+    Price: 0.006212
+
+Preferred Features:
+        More Cargo Space: 3ft cargo space is preferred over 2ft.
+        6 Seats: Preferred over 7 or 8 seats.
+        Gas Engines: Strongly preferred over hybrid and electric engines.
+        Lower Price: Lower prices increase the likelihood of choice.
+
+_todo: assume the market consists of the following 6 minivans. Predict the market shares of each minivan in the market._
+
+| Minivan | Seats | Cargo | Engine | Price |
+|---------|-------|-------|--------|-------|
+| A       | 7     | 2     | Hyb    | 30    |
+| B       | 6     | 2     | Gas    | 30    |
+| C       | 8     | 2     | Gas    | 30    |
+| D       | 7     | 3     | Gas    | 40    |
+| E       | 6     | 2     | Elec   | 40    |
+| F       | 7     | 2     | Hyb    | 35    |
+
+```{python}
+
+# Create a dataframe for the six minivans
+minivans = pd.DataFrame({
+    'Minivan': ['A', 'B', 'C', 'D', 'E', 'F'],
+    'seat': [7, 6, 8, 7, 6, 7],
+    'cargo': ['2ft', '2ft', '2ft', '3ft', '2ft', '2ft'],
+    'eng': ['hyb', 'gas', 'gas', 'gas', 'elec', 'hyb'],
+    'price': [30, 30, 30, 40, 40, 35]
+})
+
+# Create dummy variables for the minivans and ensure all expected columns are present
+minivans_dummies = pd.get_dummies(minivans, columns=['seat', 'cargo', 'eng'])
+
+# Ensure all required columns are present by adding missing columns with zero values
+required_columns = ['seat_7', 'seat_8', 'cargo_3ft', 'eng_hyb', 'eng_elec', 'price']
+for col in required_columns:
+    if col not in minivans_dummies.columns:
+        minivans_dummies[col] = 0
+
+# Select the relevant columns in the correct order
+X_minivans = minivans_dummies[required_columns]
+
+# Add a constant to the independent variables
+X_minivans = sm.add_constant(X_minivans.astype(float))
+
+# Predict the utility of each minivan
+utilities = np.dot(X_minivans, coefficients)
+
+# Calculate the exponential of utilities to get the market shares
+exp_utilities = np.exp(utilities)
+market_shares = exp_utilities / np.sum(exp_utilities)
+
+# Combine the results into a dataframe
+minivans['Market_Share'] = market_shares
+
+print(minivans[['Minivan', 'Market_Share']])
+```
+
+Interpretation
+
+    Minivan B (6 seats, 2ft cargo, gas engine, $30k) has the highest predicted market share at 41.97%.
+    Minivan C (8 seats, 2ft cargo, gas engine, $30k) follows with a market share of 31.31%.
+    Minivan A (7 seats, 2ft cargo, hybrid engine, $30k) has a market share of 11.61%.
+    Minivan D (7 seats, 3ft cargo, gas engine, $40k) has a market share of 7.84%.
+    Minivan F (7 seats, 2ft cargo, hybrid engine, $35k) has a market share of 5.24%.
+    Minivan E (6 seats, 2ft cargo, electric engine, $40k) has the lowest market share at 2.04%.
+
+These results indicate that:
+
+    Lower price and the presence of a gas engine are highly preferred, as seen with Minivans B and C.
+    Larger cargo space (3ft) does not compensate for a higher price or a less preferred engine type (e.g., Minivan D).
+    Hybrid and electric engines are less preferred compared to gas engines, especially at higher prices.
+
+
+
+
+
+
+
+
