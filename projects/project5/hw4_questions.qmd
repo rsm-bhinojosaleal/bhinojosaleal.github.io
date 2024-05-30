@@ -1,0 +1,211 @@
+---
+title: "Key Drivers Analysis"
+author: "Bidkar Hinojosa Leal"
+date: 29/05/2024
+---
+
+
+This post implements a few measure of variable importance, interpreted as a key drivers analysis, for certain aspects of a payment card on customer satisfaction with that payment card.
+
+
+_todo: replicate the table on slide 19 of the session 4 slides. This involves calculating pearson correlations, standardized regression coefficients, "usefulness", Shapley values for a linear regression, Johnson's relative weights, and the mean decrease in the gini coefficient from a random forest. You may use packages built into R or Python._
+
+_If you want a challenge, either (1) implement one or more of the measures yourself. "Usefulness" is rather easy to program up. Shapley values for linear regression are a bit more work. Or (2) add additional measures to the table such as the importance scores from XGBoost._
+
+
+## 1. Introduction
+
+
+### Dataset Description
+
+The dataset utilized in this analysis contains survey responses from customers about their experiences and satisfaction with various payment cards. The survey covers multiple features of the cards, such as trustworthiness, ease of use, rewards, and customer service. Each response is linked to several variables representing these features, along with an overall satisfaction score.
+Objective
+
+The main goal of this article is to examine and compare different methods for calculating the importance of various features (variables) in determining customer satisfaction. Identifying which features most significantly impact satisfaction can provide valuable insights for businesses aiming to enhance their payment card products and services. The methods investigated in this analysis include Pearson correlations, standardized regression coefficients, Shapley values, permutation importance, Johnson’s relative weights, mean decrease in Gini coefficient, and XGBoost feature importance
+
+
+### Features
+
+brand: Identifier for the brand of the payment card.
+id: Unique identifier for each survey response.
+satisfaction: Overall satisfaction score given by the customer (target variable).
+trust: Indicates the trustworthiness of the payment card as perceived by the customer.
+build: Reflects the physical build quality of the card.
+differs: Indicates how different the card is compared to others in the market.
+easy: Measures the ease of use of the card.
+appealing: Represents the visual and aesthetic appeal of the card.
+rewarding: Reflects the rewards and benefits associated with the card.
+popular: Indicates the perceived popularity of the card.
+service: Measures the quality of customer service related to the card.
+impact: Reflects the overall impact of the card on the customer's life.
+
+
+## 2. Key Driver Methods
+
+### Pearson Correlation
+
+Pearson correlation measures the linear relationship between two variables. We will calculate the correlation between each feature and the overall satisfaction score.
+
+```{python}
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.inspection import permutation_importance
+import shap
+import statsmodels.api as sm
+from scipy.stats import pearsonr
+
+# Load the dataset
+file_path = 'data_for_drivers_analysis.csv'
+data = pd.read_csv(file_path)
+
+# Extract features and target variable
+X = data.drop(columns=['brand', 'id', 'satisfaction'])
+y = data['satisfaction']
+
+# Standardize the features and target variable
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+y_scaled = scaler.fit_transform(y.values.reshape(-1, 1)).flatten()
+
+# Initialize the results dictionary
+results = {}
+
+# Step 1: Pearson Correlations
+pearson_correlations = {feature: pearsonr(X[feature], y)[0] for feature in X.columns}
+results['Pearson Correlations'] = pearson_correlations
+
+```
+
+## Standardized Regression coefficients
+
+Standardized regression coefficients (beta weights) indicate the relative importance of each predictor in a regression model. We will standardize the features and target variable and then fit a linear regression model to get these coefficients.
+
+```{python}
+regression = LinearRegression()
+regression.fit(X_scaled, y_scaled)
+standardized_coefficients = dict(zip(X.columns, regression.coef_))
+results['Standardized Regression Coefficients'] = standardized_coefficients
+
+```
+
+## Usefulness
+
+In this context, "usefulness" refers to the contribution of each feature to the explanatory power of the model. We will calculate it using a custom approach, which often involves comparing the R-squared values of models with and without the feature.
+
+```{python}
+def usefulness_score(model, X, y):
+    r_squared_full = model.score(X, y)
+    usefulness_scores = {}
+    for feature in X.columns:
+        X_reduced = X.drop(columns=[feature])
+        model.fit(X_reduced, y)
+        r_squared_reduced = model.score(X_reduced, y)
+        usefulness_scores[feature] = r_squared_full - r_squared_reduced
+    return usefulness_scores
+
+usefulness = usefulness_score(regression, pd.DataFrame(X_scaled, columns=X.columns), y_scaled)
+results['Usefulness'] = usefulness
+```
+
+## Permutation Importance
+
+```{python}
+X_scaled_df = pd.DataFrame(X_scaled, columns=X.columns)
+
+# Refit the linear regression model to ensure it aligns with the feature set
+regression.fit(X_scaled_df, y_scaled)
+
+# Calculate permutation importance for the linear regression model
+permutation_importances = permutation_importance(regression, X_scaled_df, y_scaled, n_repeats=30, random_state=42)
+perm_importances_dict = dict(zip(X.columns, permutation_importances.importances_mean))
+results['Permutation Importance'] = perm_importances_dict
+
+```
+
+##  Johnson's relative weights
+
+Johnson’s relative weights decompose the regression R-squared into components attributable to each predictor, considering multicollinearity. We will calculate these weights to understand each feature's relative importance.
+
+```{python}
+def relative_weights(X, y):
+    model = sm.OLS(y, sm.add_constant(X)).fit()
+    R = np.corrcoef(X, rowvar=False)
+    Z = X.dot(np.linalg.inv(np.sqrt(R)))
+    relative_weights = np.square(np.corrcoef(Z, y, rowvar=False)[-1, :-1])
+    return dict(zip(X.columns, relative_weights / relative_weights.sum()))
+
+relative_weights = relative_weights(pd.DataFrame(X_scaled, columns=X.columns), y_scaled)
+results['Johnson\'s Relative Weights'] = relative_weights
+
+```
+
+## Gini coefficient
+
+The mean decrease in Gini coefficient is used in random forests to measure the importance of each feature. It reflects how much including a particular feature decreases the impurity of the model.
+
+```{python}
+forest = RandomForestRegressor(random_state=42)
+forest.fit(X, y)
+mdi_importances = forest.feature_importances_
+mdi_importances_dict = dict(zip(X.columns, mdi_importances))
+results['Mean Decrease in Gini Coefficient'] = mdi_importances_dict
+
+```
+
+## Results
+
+```{python}
+results_df = pd.DataFrame(results)
+
+results_df
+
+```
+
+## 3. Results interpretation
+
+1. Pearson Correlations
+
+Pearson correlation measures the linear relationship between each feature and customer satisfaction. Higher absolute values indicate a stronger linear relationship.
+
+    Top Features: trust (0.256), impact (0.255), and service (0.251)
+
+2. Standardized Regression Coefficients
+
+These coefficients show the relative importance of each predictor in a standardized linear regression model.
+
+    Top Features: impact (0.128), trust (0.116), and service (0.088)
+
+3. Usefulness
+
+"Usefulness" measures the decrease in the model's R-squared when a feature is removed, indicating its contribution to the model's explanatory power.
+
+    Top Features: impact (0.011), trust (0.008), and service (0.005)
+
+4. Permutation Importance
+
+This method evaluates the decrease in model performance when the values of a single feature are randomly shuffled.
+
+    Top Features: impact (0.034), trust (0.027), and service (0.016)
+
+5. Johnson's Relative Weights
+
+Johnson’s relative weights decompose the regression R-squared into components attributable to each predictor, considering multicollinearity.
+
+    Top Features: impact (0.434), trust (0.317), and service (0.173)
+
+6. Mean Decrease in Gini Coefficient from Random Forest
+
+The mean decrease in Gini coefficient measures how much including a particular feature decreases the impurity of the model.
+
+    Top Features: trust (0.156), impact (0.141), and service (0.130)
+
+### Overall Insights
+
+- Consistently Important Features: trust, impact, and service are consistently ranked as important across all metrics, indicating their strong influence on customer satisfaction.
+- Moderately Important Features: easy, appealing, and rewarding show moderate importance in some metrics but not in others.
+- Less Important Features: build, differs, and popular generally show lower importance scores across the different metrics.
+
+These insights can help businesses prioritize which features to focus on to enhance customer satisfaction with their payment cards.
