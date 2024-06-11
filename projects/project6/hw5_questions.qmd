@@ -1,0 +1,303 @@
+---
+title: "Segmentation Methods"
+author: "Your Name"
+date: today
+---
+
+
+## K-Means
+
+### K Means Algorithm Implementation
+
+1. Initialization: Randomly select kk initial centroids.
+
+```{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+iris_data = pd.read_csv('iris.csv')
+
+def initialize_centroids(data, k):
+    """Randomly initialize k centroids from the data."""
+    n_samples, n_features = data.shape
+    centroids = data[np.random.choice(n_samples, k, replace=False)]
+    return centroids
+
+# Extracting features from the dataset
+X = iris_data.iloc[:, :-1].values
+
+# Initialize centroids for k=3
+k = 3
+initial_centroids = initialize_centroids(X, k)
+
+# Plot initial centroids
+plt.scatter(X[:, 0], X[:, 1], c='blue', label='Data Points')
+plt.scatter(initial_centroids[:, 0], initial_centroids[:, 1], c='red', marker='x', s=100, label='Initial Centroids')
+plt.xlabel('Sepal Length')
+plt.ylabel('Sepal Width')
+plt.legend()
+plt.title('Initial Centroids')
+plt.show()
+```
+
+2. Assignment Step: Assign each data point to the nearest centroid.
+
+```{python}
+def assign_clusters(data, centroids):
+    """Assign each data point to the nearest centroid."""
+    distances = np.linalg.norm(data[:, np.newaxis] - centroids, axis=2)
+    cluster_labels = np.argmin(distances, axis=1)
+    return cluster_labels
+
+# Assign clusters based on initial centroids
+cluster_labels = assign_clusters(X, initial_centroids)
+
+# Plot the assigned clusters
+plt.scatter(X[:, 0], X[:, 1], c=cluster_labels, cmap='viridis', label='Data Points')
+plt.scatter(initial_centroids[:, 0], initial_centroids[:, 1], c='red', marker='x', s=100, label='Centroids')
+plt.xlabel('Sepal Length')
+plt.ylabel('Sepal Width')
+plt.legend()
+plt.title('Cluster Assignment')
+plt.show()
+```
+
+3. Update Step: Calculate the new centroids as the mean of the points assigned to each centroid.
+
+```{python}
+def update_centroids(data, cluster_labels, k):
+    """Calculate the new centroids as the mean of the points assigned to each centroid."""
+    new_centroids = np.array([data[cluster_labels == i].mean(axis=0) for i in range(k)])
+    return new_centroids
+
+# Update centroids based on the initial cluster assignment
+new_centroids = update_centroids(X, cluster_labels, k)
+
+# Plot the updated centroids
+plt.scatter(X[:, 0], X[:, 1], c=cluster_labels, cmap='viridis', label='Data Points')
+plt.scatter(new_centroids[:, 0], new_centroids[:, 1], c='red', marker='x', s=100, label='New Centroids')
+plt.xlabel('Sepal Length')
+plt.ylabel('Sepal Width')
+plt.legend()
+plt.title('Updated Centroids')
+plt.show()
+
+```
+
+4. Repeat: Repeat the assignment and update steps until the centroids do not change significantly.
+
+```{python}
+def k_means(data, k, max_iters=100, tol=1e-4):
+    """K-means clustering algorithm."""
+    centroids = initialize_centroids(data, k)
+    for i in range(max_iters):
+        cluster_labels = assign_clusters(data, centroids)
+        new_centroids = update_centroids(data, cluster_labels, k)
+        
+        # Check for convergence
+        if np.linalg.norm(new_centroids - centroids) < tol:
+            break
+        centroids = new_centroids
+    
+    return centroids, cluster_labels
+
+# Run the k-means algorithm
+final_centroids, final_cluster_labels = k_means(X, k)
+
+# Plot the final clusters
+plt.scatter(X[:, 0], X[:, 1], c=final_cluster_labels, cmap='viridis', label='Data Points')
+plt.scatter(final_centroids[:, 0], final_centroids[:, 1], c='red', marker='x', s=100, label='Final Centroids')
+plt.xlabel('Sepal Length')
+plt.ylabel('Sepal Width')
+plt.legend()
+plt.title('Final Clusters and Centroids')
+plt.show()
+```
+
+### K Means Python Package
+
+```{python}
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+
+# Calculate within-cluster sum of squares and silhouette scores for k=2 to k=7
+wcss = []
+sil_scores = []
+
+for k in range(2, 8):
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    kmeans.fit(X)
+    
+    wcss.append(kmeans.inertia_)
+    sil_scores.append(silhouette_score(X, kmeans.labels_))
+    
+    # Plot clusters
+    plt.figure()
+    plt.scatter(X[:, 0], X[:, 1], c=kmeans.labels_, cmap='viridis', label='Data Points')
+    plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], c='red', marker='x', s=100, label='Centroids')
+    plt.xlabel('Sepal Length')
+    plt.ylabel('Sepal Width')
+    plt.legend()
+    plt.title(f'Clusters and Centroids (k={k})')
+    plt.show()
+
+# Plot WCSS and Silhouette Scores
+plt.figure()
+plt.plot(range(2, 8), wcss, marker='o')
+plt.xlabel('Number of Clusters (k)')
+plt.ylabel('Within-Cluster Sum of Squares (WCSS)')
+plt.title('WCSS vs. Number of Clusters')
+plt.show()
+
+plt.figure()
+plt.plot(range(2, 8), sil_scores, marker='o')
+plt.xlabel('Number of Clusters (k)')
+plt.ylabel('Silhouette Score')
+plt.title('Silhouette Score vs. Number of Clusters')
+plt.show()
+
+```
+
+
+### Comparison of models
+
+```{python}
+# Run the custom k-means algorithm for k=3
+custom_centroids, custom_labels = k_means(X, k=3)
+
+# Print custom centroids and labels
+print("Custom K-means Centroids:\n", custom_centroids)
+print("Custom K-means Labels:\n", custom_labels)
+```
+
+```{python}
+# Run the scikit-learn KMeans algorithm for k=3
+kmeans = KMeans(n_clusters=3, random_state=42)
+kmeans.fit(X)
+sklearn_centroids = kmeans.cluster_centers_
+sklearn_labels = kmeans.labels_
+
+# Print scikit-learn centroids and labels
+print("Scikit-learn KMeans Centroids:\n", sklearn_centroids)
+print("Scikit-learn KMeans Labels:\n", sklearn_labels)
+
+from scipy.spatial.distance import cdist
+
+# Find the closest custom centroid to each sklearn centroid
+centroid_order = cdist(sklearn_centroids, custom_centroids).argmin(axis=1)
+
+# Reorder custom labels to match sklearn labels
+aligned_custom_labels = np.zeros_like(custom_labels)
+for i in range(3):
+    aligned_custom_labels[custom_labels == i] = centroid_order[i]
+
+# Compare the labels
+alignment_accuracy = np.mean(aligned_custom_labels == sklearn_labels)
+alignment_accuracy
+
+# Plot clusters from custom k-means implementation
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.scatter(X[:, 0], X[:, 1], c=aligned_custom_labels, cmap='viridis', label='Data Points')
+plt.scatter(custom_centroids[:, 0], custom_centroids[:, 1], c='red', marker='x', s=100, label='Custom Centroids')
+plt.xlabel('Sepal Length')
+plt.ylabel('Sepal Width')
+plt.legend()
+plt.title('Custom K-means Clusters')
+
+# Plot clusters from scikit-learn k-means implementation
+plt.subplot(1, 2, 2)
+plt.scatter(X[:, 0], X[:, 1], c=sklearn_labels, cmap='viridis', label='Data Points')
+plt.scatter(sklearn_centroids[:, 0], sklearn_centroids[:, 1], c='red', marker='x', s=100, label='Sklearn Centroids')
+plt.xlabel('Sepal Length')
+plt.ylabel('Sepal Width')
+plt.legend()
+plt.title('Scikit-learn KMeans Clusters')
+
+plt.tight_layout()
+plt.show()
+```
+As we can see, the centroids are the same but in a different order. This is expected because k-means does not guarantee the same order of centroids.
+
+The visual representation is pretty close on the selection of the centroids and the groupings per cluster
+
+
+Now we wil test the WCSS to compare the models.
+
+```{python}
+# Function to calculate WCSS and silhouette scores for custom k-means
+def calculate_metrics_custom(data, max_k):
+    wcss_custom = []
+    sil_scores_custom = []
+    
+    for k in range(2, max_k + 1):
+        centroids, labels = k_means(data, k)
+        wcss = np.sum(np.min(cdist(data, centroids), axis=1)**2)
+        sil_score = silhouette_score(data, labels)
+        
+        wcss_custom.append(wcss)
+        sil_scores_custom.append(sil_score)
+    
+    return wcss_custom, sil_scores_custom
+
+# Calculate metrics for custom k-means
+max_k = 7
+wcss_custom, sil_scores_custom = calculate_metrics_custom(X, max_k)
+
+# Function to calculate WCSS and silhouette scores for scikit-learn k-means
+def calculate_metrics_sklearn(data, max_k):
+    wcss_sklearn = []
+    sil_scores_sklearn = []
+    
+    for k in range(2, max_k + 1):
+        kmeans = KMeans(n_clusters=k, random_state=42)
+        kmeans.fit(data)
+        
+        wcss_sklearn.append(kmeans.inertia_)
+        sil_scores_sklearn.append(silhouette_score(data, kmeans.labels_))
+    
+    return wcss_sklearn, sil_scores_sklearn
+
+# Calculate metrics for scikit-learn k-means
+wcss_sklearn, sil_scores_sklearn = calculate_metrics_sklearn(X, max_k)
+
+# Plot WCSS for both custom and scikit-learn k-means
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(range(2, max_k + 1), wcss_custom, marker='o', label='Custom K-means')
+plt.plot(range(2, max_k + 1), wcss_sklearn, marker='o', label='Scikit-learn KMeans')
+plt.xlabel('Number of Clusters (k)')
+plt.ylabel('Within-Cluster Sum of Squares (WCSS)')
+plt.title('WCSS vs. Number of Clusters')
+plt.legend()
+
+# Plot Silhouette Scores for both custom and scikit-learn k-means
+plt.subplot(1, 2, 2)
+plt.plot(range(2, max_k + 1), sil_scores_custom, marker='o', label='Custom K-means')
+plt.plot(range(2, max_k + 1), sil_scores_sklearn, marker='o', label='Scikit-learn KMeans')
+plt.xlabel('Number of Clusters (k)')
+plt.ylabel('Silhouette Score')
+plt.title('Silhouette Score vs. Number of Clusters')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+Within-Cluster Sum of Squares (WCSS)
+    Both implementations show a similar decreasing trend in WCSS as the number of clusters increases.
+    The "elbow" point, which indicates a significant reduction in WCSS, appears around k=3k=3, suggesting that 3 clusters might be optimal.
+
+Silhouette Scores
+    Both implementations show similar patterns in silhouette scores.
+    The highest silhouette scores are observed for k=2k=2 and k=3k=3, with k=3k=3 being slightly higher in both cases, indicating that 3 clusters provide well-defined separation.
+
+Conclusion
+
+Both the custom k-means implementation and the scikit-learn KMeans implementation suggest that 3 clusters are optimal for the Iris dataset. The comparison shows that both methods produce consistent results, confirming that the custom implementation is working correctly.
+
+
+

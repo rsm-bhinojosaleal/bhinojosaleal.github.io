@@ -229,7 +229,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="pearson-correlation" class="level3">
 <h3 class="anchored" data-anchor-id="pearson-correlation">Pearson Correlation</h3>
 <p>Pearson correlation measures the linear relationship between two variables. We will calculate the correlation between each feature and the overall satisfaction score.</p>
-<div id="5b058f0e" class="cell" data-execution_count="1">
+<div id="10420a63" class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.preprocessing <span class="im">import</span> StandardScaler</span>
@@ -268,7 +268,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="standardized-regression-coefficients" class="level2">
 <h2 class="anchored" data-anchor-id="standardized-regression-coefficients">Standardized Regression coefficients</h2>
 <p>Standardized regression coefficients (beta weights) indicate the relative importance of each predictor in a regression model. We will standardize the features and target variable and then fit a linear regression model to get these coefficients.</p>
-<div id="0601b331" class="cell" data-execution_count="2">
+<div id="26864539" class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>regression <span class="op">=</span> LinearRegression()</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>regression.fit(X_scaled, y_scaled)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>standardized_coefficients <span class="op">=</span> <span class="bu">dict</span>(<span class="bu">zip</span>(X.columns, regression.coef_))</span>
@@ -278,7 +278,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="usefulness" class="level2">
 <h2 class="anchored" data-anchor-id="usefulness">Usefulness</h2>
 <p>In this context, “usefulness” refers to the contribution of each feature to the explanatory power of the model. We will calculate it using a custom approach, which often involves comparing the R-squared values of models with and without the feature.</p>
-<div id="af6ad5e5" class="cell" data-execution_count="3">
+<div id="536c581c" class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> usefulness_score(model, X, y):</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    r_squared_full <span class="op">=</span> model.score(X, y)</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    usefulness_scores <span class="op">=</span> {}</span>
@@ -298,7 +298,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="permutation-importance" class="level2">
 <h2 class="anchored" data-anchor-id="permutation-importance">Permutation Importance</h2>
-<div id="0bc349df" class="cell" data-execution_count="4">
+<div id="9a4f30c6" class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>X_scaled_df <span class="op">=</span> pd.DataFrame(X_scaled, columns<span class="op">=</span>X.columns)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Refit the linear regression model to ensure it aligns with the feature set</span></span>
@@ -313,7 +313,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="johnsons-relative-weights" class="level2">
 <h2 class="anchored" data-anchor-id="johnsons-relative-weights">Johnson’s relative weights</h2>
 <p>Johnson’s relative weights decompose the regression R-squared into components attributable to each predictor, considering multicollinearity. We will calculate these weights to understand each feature’s relative importance.</p>
-<div id="998d414b" class="cell" data-execution_count="5">
+<div id="0d4bc5dc" class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> relative_weights(X, y):</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    model <span class="op">=</span> sm.OLS(y, sm.add_constant(X)).fit()</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    R <span class="op">=</span> np.corrcoef(X, rowvar<span class="op">=</span><span class="va">False</span>)</span>
@@ -328,7 +328,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="gini-coefficient" class="level2">
 <h2 class="anchored" data-anchor-id="gini-coefficient">Gini coefficient</h2>
 <p>The mean decrease in Gini coefficient is used in random forests to measure the importance of each feature. It reflects how much including a particular feature decreases the impurity of the model.</p>
-<div id="cfc0029c" class="cell" data-execution_count="6">
+<div id="fa973c08" class="cell" data-execution_count="6">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>forest <span class="op">=</span> RandomForestRegressor(random_state<span class="op">=</span><span class="dv">42</span>)</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>forest.fit(X, y)</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>mdi_importances <span class="op">=</span> forest.feature_importances_</span>
@@ -338,7 +338,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="results" class="level2">
 <h2 class="anchored" data-anchor-id="results">Results</h2>
-<div id="a75cec19" class="cell" data-execution_count="7">
+<div id="abdb2fd6" class="cell" data-execution_count="7">
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>results_df <span class="op">=</span> pd.DataFrame(results)</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>results_df</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -481,9 +481,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code>Top Features: trust (0.156), impact (0.141), and service (0.130)</code></pre>
 <section id="overall-insights" class="level3">
 <h3 class="anchored" data-anchor-id="overall-insights">Overall Insights</h3>
-<pre><code>Consistently Important Features: trust, impact, and service are consistently ranked as important across all metrics, indicating their strong influence on customer satisfaction.
-Moderately Important Features: easy, appealing, and rewarding show moderate importance in some metrics but not in others.
-Less Important Features: build, differs, and popular generally show lower importance scores across the different metrics.</code></pre>
+<ul>
+<li>Consistently Important Features: trust, impact, and service are consistently ranked as important across all metrics, indicating their strong influence on customer satisfaction.</li>
+<li>Moderately Important Features: easy, appealing, and rewarding show moderate importance in some metrics but not in others.</li>
+<li>Less Important Features: build, differs, and popular generally show lower importance scores across the different metrics.</li>
+</ul>
 <p>These insights can help businesses prioritize which features to focus on to enhance customer satisfaction with their payment cards.</p>
 
 
